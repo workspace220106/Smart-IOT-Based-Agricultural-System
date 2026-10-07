@@ -1,0 +1,13 @@
+ultralytics>=8.0.0
+tensorflow>=2.15.0
+tf2onnx
+roboflow
+opencv-python
+Pillow
+scikit-learn
+xgboost
+pandas
+numpy
+matplotlib
+joblib
+kaggle
