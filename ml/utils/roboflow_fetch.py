@@ -13,10 +13,13 @@ OUT = Path(__file__).resolve().parent.parent / "datasets"
 
 # Edit these to the exact Roboflow project versions you prefer.
 TARGETS = {
+    # Disease: use PlantVillage via new_plant_diseases Kaggle set (classification);
+    # if you want YOLO boxes, swap in a Roboflow Universe project here.
     "disease": {"workspace": "plant-disease-detection", "project": "plant-village",
                 "version": 1, "format": "yolov8"},
-    "pest":    {"workspace": "pest-detection",          "project": "ip102",
-                "version": 1, "format": "yolov8"},
+    # Pest: Roboflow-100 benchmark insects dataset, 10 crop pest classes, YOLO-ready
+    "pest":    {"workspace": "roboflow-100",            "project": "insects-mytwu",
+                "version": 2, "format": "yolov8"},
 }
 
 

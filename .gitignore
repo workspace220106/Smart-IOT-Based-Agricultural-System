@@ -32,6 +32,17 @@ datasets/**
 !datasets/.gitkeep
 ml/datasets/**
 !ml/datasets/.gitkeep
+# Allow the small tabular CSVs so Colab notebooks can wget them from the repo
+!ml/datasets/irrigation/
+!ml/datasets/irrigation/*.csv
+!ml/datasets/fertilizer/
+!ml/datasets/fertilizer/*.csv
+!ml/datasets/water_quality/
+!ml/datasets/water_quality/*.csv
+!ml/datasets/crop_recommend/
+!ml/datasets/crop_recommend/*.csv
+!ml/datasets/smart_farming/
+!ml/datasets/smart_farming/*.csv
 *.zip
 *.tar.gz
 *.tgz
