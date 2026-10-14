@@ -7,6 +7,7 @@ import io
 import numpy as np
 import pandas as pd
 from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from PIL import Image
 
 from .model_registry import (
@@ -20,6 +21,12 @@ from .schemas.sensors import (
 )
 
 app = FastAPI(title="IOT LAB Inference API", version="0.1")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # tighten in production
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
