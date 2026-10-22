@@ -1,0 +1,27 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Sensor readings — authenticated users can create; users read their own
+    match /sensor_readings/{docId} {
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow read:   if request.auth != null;
+    }
+
+    // Predictions — same pattern
+    match /predictions/{docId} {
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow read:   if request.auth != null;
+    }
+
+    // Scan results — same pattern
+    match /scan_results/{docId} {
+      allow create: if request.auth != null
+                    && request.resource.data.userId == request.auth.uid;
+      allow read:   if request.auth != null;
+    }
+  }
+}

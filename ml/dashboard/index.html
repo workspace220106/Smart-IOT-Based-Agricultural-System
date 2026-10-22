@@ -7,6 +7,11 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Fraunces:ital,wght@0,400;0,500;1,400&display=swap" rel="stylesheet">
+<!-- Firebase SDK (modular, compat builds for simplicity in a vanilla HTML page) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-analytics-compat.js"></script>
 <style>
   :root {
     --bg: #F7F3EA;
@@ -414,6 +419,96 @@
 
   .row { display: flex; gap: 10px; align-items: center; }
   .mt-16 { margin-top: 16px; }
+
+  /* Auth overlay */
+  .auth-overlay {
+    position: fixed; inset: 0;
+    background:
+      radial-gradient(1200px 500px at 10% -10%, rgba(74,124,89,0.12), transparent 60%),
+      radial-gradient(900px 400px at 100% 10%, rgba(200,152,41,0.10), transparent 55%),
+      var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 1000;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+  }
+  .auth-overlay.hidden {
+    opacity: 0; visibility: hidden; pointer-events: none;
+  }
+  .auth-box {
+    background: var(--surface);
+    border: 1px solid var(--border-soft);
+    border-radius: var(--radius);
+    padding: 48px 40px 36px;
+    text-align: center;
+    max-width: 380px;
+    width: 90%;
+    box-shadow: 0 8px 40px rgba(31,32,22,0.08);
+  }
+  .auth-box .logo {
+    width: 52px; height: 52px; margin: 0 auto 18px;
+    border-radius: 14px;
+  }
+  .auth-box .logo svg { width: 28px; height: 28px; }
+  .auth-box h2 {
+    font-family: 'Fraunces', serif;
+    font-weight: 500;
+    font-size: 22px;
+    letter-spacing: -0.01em;
+    margin-bottom: 6px;
+    justify-content: center;
+    text-transform: none;
+  }
+  .auth-box h2::before { display: none; }
+  .auth-box p {
+    color: var(--muted); font-size: 13px; margin-bottom: 24px;
+  }
+  .auth-box button.google-btn {
+    background: #fff; color: var(--ink);
+    border: 1px solid var(--border);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    display: inline-flex; align-items: center; gap: 10px;
+    font-size: 14px; font-weight: 500;
+    letter-spacing: 0; text-transform: none;
+    padding: 12px 28px;
+    border-radius: 8px;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  .auth-box button.google-btn:hover {
+    background: #f8f8f8; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transform: none;
+  }
+  .auth-box button.google-btn svg { width: 18px; height: 18px; flex-shrink: 0; }
+  .user-bar {
+    display: flex; align-items: center; gap: 10px;
+    margin-right: 14px;
+  }
+  .user-bar img {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 2px solid var(--border-soft);
+  }
+  .user-bar .uname {
+    font-size: 12px; font-weight: 500; color: var(--ink);
+    max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .user-bar button.sign-out {
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--border); box-shadow: none;
+    font-size: 10px; padding: 5px 12px;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .user-bar button.sign-out:hover {
+    background: var(--bg-tint); transform: none; box-shadow: none;
+  }
+  /* Firebase sync indicator */
+  .fb-badge {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9px; padding: 3px 8px;
+    border-radius: 999px;
+    background: var(--sage-soft); color: var(--sage-ink);
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-left: 8px;
+  }
+  .fb-badge.off { background: var(--ochre-soft); color: #8A6A1C; }
 </style>
 </head>
 <body>
@@ -432,8 +527,29 @@
       <div class="sub">Smart Agriculture System</div>
     </div>
   </div>
-  <div class="status"><span id="dot" class="dot"></span><span id="apiStatus">Checking</span></div>
+  <div style="display:flex;align-items:center;gap:12px;">
+    <div id="userBar" class="user-bar" style="display:none;"></div>
+    <div class="status"><span id="dot" class="dot"></span><span id="apiStatus">Checking</span><span id="fbBadge" class="fb-badge off">Firebase: off</span></div>
+  </div>
 </header>
+
+<!-- Auth Overlay -->
+<div class="auth-overlay" id="authOverlay">
+  <div class="auth-box">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2a7 7 0 0 1 7 7c0 4-3.5 7-7 11-3.5-4-7-7-7-11a7 7 0 0 1 7-7z"/>
+        <path d="M12 9v4"/>
+      </svg>
+    </div>
+    <h2>IOT Lab</h2>
+    <p>Sign in to access the Smart Agriculture dashboard</p>
+    <button class="google-btn" id="googleSignIn">
+      <svg viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Sign in with Google
+    </button>
+  </div>
+</div>
 
 <!-- KPI strip -->
 <div class="kpis">
@@ -551,8 +667,79 @@
 </div>
 
 <script>
+// ─── Firebase Configuration ─────────────────────────────────────────
+const firebaseConfig = {
+  apiKey: "AIzaSyCHi7tgs0tMKGwzYpXqhmPVUvrKsqNOsDQ",
+  authDomain: "smart-agri-system-36786.firebaseapp.com",
+  projectId: "smart-agri-system-36786",
+  storageBucket: "smart-agri-system-36786.firebasestorage.app",
+  messagingSenderId: "45650307406",
+  appId: "1:45650307406:web:df90d9223cc789c110561f",
+  measurementId: "G-138J57E6PC"
+};
+
+// Initialize Firebase
+const fbApp = firebase.initializeApp(firebaseConfig);
+const analytics = firebase.analytics();
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// ─── Auth ───────────────────────────────────────────────────────────
+const authOverlay = document.getElementById('authOverlay');
+const userBar = document.getElementById('userBar');
+const googleProvider = new firebase.auth.GoogleAuthProvider();
+
+document.getElementById('googleSignIn').addEventListener('click', () => {
+  auth.signInWithPopup(googleProvider).catch(err => {
+    console.error('Sign-in error:', err);
+    alert('Sign-in failed: ' + err.message);
+  });
+});
+
+function showSignedIn(user) {
+  authOverlay.classList.add('hidden');
+  const photo = user.photoURL || 'data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22><circle cx=%2212%22 cy=%228%22 r=%224%22 fill=%22%236B6758%22/><path d=%22M4 20c0-4 3.6-7 8-7s8 3 8 7%22 fill=%22%236B6758%22/></svg>';
+  userBar.innerHTML = `
+    <img src="${photo}" alt="avatar" referrerpolicy="no-referrer">
+    <span class="uname">${user.displayName || user.email}</span>
+    <button class="sign-out" id="signOutBtn">Sign out</button>
+  `;
+  userBar.style.display = 'flex';
+  document.getElementById('signOutBtn').addEventListener('click', () => auth.signOut());
+}
+
+function showSignedOut() {
+  authOverlay.classList.remove('hidden');
+  userBar.style.display = 'none';
+  userBar.innerHTML = '';
+}
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    showSignedIn(user);
+    startFirestoreSync();
+  } else {
+    showSignedOut();
+    stopFirestoreSync();
+  }
+});
+
+// ─── Original Dashboard Logic ───────────────────────────────────────
 const API = localStorage.getItem('API') || 'http://localhost:8000';
-document.getElementById('apiUrl').textContent = API;
+const apiUrlEl = document.getElementById('apiUrl');
+if (apiUrlEl) {
+  apiUrlEl.textContent = API;
+  apiUrlEl.style.cursor = 'pointer';
+  apiUrlEl.style.textDecoration = 'underline dotted';
+  apiUrlEl.title = 'Click to configure backend API URL';
+  apiUrlEl.addEventListener('click', () => {
+    const next = prompt('Enter Backend API URL (FastAPI):', API);
+    if (next !== null && next.trim()) {
+      localStorage.setItem('API', next.trim().replace(/\/+$/, ''));
+      location.reload();
+    }
+  });
+}
 
 const sliders = ['soil','temp','hum','ph','tds','turb','rain','N','P','K'];
 const unitMap = {soil:'%', temp:'°C', hum:'%', ph:'', tds:'', turb:'', rain:''};
@@ -619,6 +806,10 @@ document.getElementById('run').addEventListener('click', async () => {
                     + renderResult('fertilizer','Fertilizer','Analyzing...','info','query sent')
                     + renderResult('water','Water Quality','Analyzing...','info','query sent')
                     + renderResult('anomaly','Anomaly','Analyzing...','info','query sent');
+
+  // Save sensor snapshot to Firestore
+  saveSensorReading(b);
+
   const [irr, fert, water, anom] = await Promise.allSettled([
     callAPI('/predict/irrigation', b),
     callAPI('/predict/fertilizer', b),
@@ -628,6 +819,15 @@ document.getElementById('run').addEventListener('click', async () => {
   const show = (r, key, name, formatter) => r.status === 'fulfilled'
     ? formatter(r.value)
     : renderResult(key, name, 'Error', 'alert', r.reason?.message || '—');
+
+  const analysisResults = {
+    irrigation: irr.status === 'fulfilled' ? irr.value : null,
+    fertilizer: fert.status === 'fulfilled' ? fert.value : null,
+    water: water.status === 'fulfilled' ? water.value : null,
+    anomaly: anom.status === 'fulfilled' ? anom.value : null,
+  };
+  // Save predictions to Firestore
+  savePrediction(b, analysisResults);
 
   results.innerHTML =
     show(irr,  'irrigation', 'Irrigation',    v => renderResult('irrigation','Irrigation', v.irrigate ? 'Irrigate now' : 'Hold off', v.irrigate ? 'warn' : 'ok', (v.confidence*100).toFixed(0)+'% confidence')) +
@@ -661,15 +861,22 @@ document.getElementById('scan').addEventListener('click', async () => {
                : v.label === 'unknown' ? 'warn' : 'alert';
     result.innerHTML = renderResult('prediction', mode.charAt(0).toUpperCase()+mode.slice(1),
                                     v.label, tone, (v.confidence*100).toFixed(0)+'% confidence');
+    // Save scan result to Firestore
+    saveScanResult(mode, v);
   } catch (e) {
     result.innerHTML = renderResult('prediction', 'Prediction','Error','alert', e.message);
   }
 });
 
 // Soil moisture chart (demo synthetic until API is wired to live data)
-function drawChart() {
+function drawChart(dataPoints) {
   const svg = document.getElementById('chart');
-  const pts = Array.from({length: 24}, (_,i) => 42 + 14 * Math.sin(i/3) + Math.cos(i/5)*5 + (Math.random()-0.5)*4);
+  // Clear previous chart content (but keep the <defs>)
+  const defs = svg.querySelector('defs');
+  svg.innerHTML = '';
+  if (defs) svg.appendChild(defs);
+
+  const pts = dataPoints || Array.from({length: 24}, (_,i) => 42 + 14 * Math.sin(i/3) + Math.cos(i/5)*5 + (Math.random()-0.5)*4);
   const W=400, H=170, padX=14, padY=18;
   const xs = pts.map((_,i) => padX + i*(W-2*padX)/(pts.length-1));
   const min = Math.min(...pts), max = Math.max(...pts);
@@ -691,6 +898,107 @@ function drawChart() {
   document.getElementById('chartNow').textContent = pts[pts.length-1].toFixed(1) + '%';
 }
 drawChart();
+
+// ─── Firestore Integration ──────────────────────────────────────────
+const fbBadge = document.getElementById('fbBadge');
+let firestoreUnsubscribe = null;
+
+/** Save a sensor reading snapshot to Firestore */
+function saveSensorReading(data) {
+  const user = auth.currentUser;
+  if (!user) return;
+  db.collection('sensor_readings').add({
+    ...data,
+    userId: user.uid,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+  }).then(() => console.log('Sensor reading saved'))
+    .catch(err => console.warn('Firestore write error:', err));
+}
+
+/** Save prediction results to Firestore */
+function savePrediction(sensorData, predictions) {
+  const user = auth.currentUser;
+  if (!user) return;
+  db.collection('predictions').add({
+    sensorData,
+    predictions,
+    userId: user.uid,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+  }).then(() => console.log('Prediction saved'))
+    .catch(err => console.warn('Firestore write error:', err));
+}
+
+/** Save leaf scan result to Firestore */
+function saveScanResult(mode, result) {
+  const user = auth.currentUser;
+  if (!user) return;
+  db.collection('scan_results').add({
+    mode,
+    label: result.label,
+    confidence: result.confidence,
+    userId: user.uid,
+    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+  }).then(() => console.log('Scan result saved'))
+    .catch(err => console.warn('Firestore write error:', err));
+}
+
+/** Listen to real-time sensor readings and update the chart */
+function startFirestoreSync() {
+  fbBadge.textContent = 'Firebase: live';
+  fbBadge.classList.remove('off');
+
+  // Real-time listener on the last 24 sensor readings
+  firestoreUnsubscribe = db.collection('sensor_readings')
+    .orderBy('timestamp', 'desc')
+    .limit(24)
+    .onSnapshot(snapshot => {
+      if (snapshot.empty) return;
+      const readings = [];
+      snapshot.forEach(doc => readings.push(doc.data()));
+      readings.reverse(); // oldest first
+
+      // Update the chart with real soil moisture data
+      const moistureData = readings.map(r => r.soil_moisture ?? 42);
+      if (moistureData.length >= 2) {
+        drawChart(moistureData);
+      }
+
+      // Update KPIs with the latest reading
+      const latest = readings[readings.length - 1];
+      if (latest) {
+        updateKPIFromFirestore(latest);
+      }
+    }, err => {
+      console.warn('Firestore listener error:', err);
+      fbBadge.textContent = 'Firebase: error';
+      fbBadge.classList.add('off');
+    });
+}
+
+function stopFirestoreSync() {
+  if (firestoreUnsubscribe) {
+    firestoreUnsubscribe();
+    firestoreUnsubscribe = null;
+  }
+  fbBadge.textContent = 'Firebase: off';
+  fbBadge.classList.add('off');
+}
+
+/** Update KPI cards from a Firestore reading */
+function updateKPIFromFirestore(data) {
+  if (data.soil_moisture != null) {
+    document.getElementById('kpi_soil').innerHTML = data.soil_moisture + '<small>%</small>';
+  }
+  if (data.temperature != null) {
+    document.getElementById('kpi_temp').innerHTML = data.temperature + '<small>°C</small>';
+  }
+  if (data.humidity != null) {
+    document.getElementById('kpi_hum').innerHTML = data.humidity + '<small>%</small>';
+  }
+  if (data.ph != null) {
+    document.getElementById('kpi_ph').textContent = data.ph;
+  }
+}
 
 checkHealth();
 setInterval(checkHealth, 15000);
